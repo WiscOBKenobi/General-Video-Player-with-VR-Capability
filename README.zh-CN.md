@@ -1,4 +1,4 @@
-# General Video Player
+# General Video Player with VR Capability
 
 *也很适合播放 VR 视频。*
 
@@ -36,7 +36,7 @@ VR 模式与拖动观看设置：
 
 ## 使用
 
-1. 在 [Releases](https://github.com/WiscOBKenobi/general-video-player/releases) 下载播放器 ZIP 并完整解压；也可以通过 **Code → Download ZIP** 下载源码并解压。
+1. 在 [Releases](https://github.com/WiscOBKenobi/General-Video-Player-with-VR-Capability/releases) 下载播放器 ZIP 并完整解压；也可以通过 **Code → Download ZIP** 下载源码并解压。
 2. 用桌面版 Microsoft Edge 或 Google Chrome 打开 `index.html`。
 3. 点击「选择视频文件」或播放列表中的「添加视频」，也可以把文件拖进页面。
 

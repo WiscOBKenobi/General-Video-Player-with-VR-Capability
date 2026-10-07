@@ -12,7 +12,7 @@
 
 # 1.1.0 发布检查
 
-日期：2026-10-08。目标：[WiscOBKenobi/general-video-player](https://github.com/WiscOBKenobi/general-video-player)。以下是首个公开发行版本的发布前验证；后面的 1.0.0 记录仅作为历史留存。
+日期：2026-10-08。目标：[WiscOBKenobi/General-Video-Player-with-VR-Capability](https://github.com/WiscOBKenobi/General-Video-Player-with-VR-Capability)。以下是首个公开发行版本的发布前验证；后面的 1.0.0 记录仅作为历史留存。
 
 - 默认普通视频、可选 VR180／360、内存会话列表、三栏布局、单击播放暂停及双击全屏。
 - 采用项目内轨道几何图形作为 Logo；界面移除说明小字，重置视角位于控制栏。
