@@ -1,4 +1,6 @@
-# General Video Player with VR Capability
+# General Video Player
+
+*也很适合播放 VR 视频。*
 
 [English](README.md) · 简体中文
 
