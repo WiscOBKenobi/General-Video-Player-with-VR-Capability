@@ -1,8 +1,10 @@
-# 1.1.0 会话列表与清理验证
+# 1.2.0 会话列表与清理验证
 
 更新日期：2026-10-08。项目名称：General Video Player with VR Capability。
 
 ## 行为
+
+- 界面默认英文，可切换中文；语言仅存在页面内存中，不写入偏好存储，刷新恢复英文。切换语言不清空列表或改变当前播放、进度与 VR 设置。
 
 - 打开页面默认「普通视频」，完整画面按原比例显示，不应用左右／上下裁剪。选择「VR 视频」才显示并应用投影、分屏和单眼设置。
 - 添加文件支持多选和批量拖放。本批第一个视频立即播放，其余加入列表，点击列表项手动切换；不自动播放下一项。
@@ -13,7 +15,7 @@
 
 ## 验证方式与可复现证据
 
-运行 `npm test` / `npm run test:chrome`，每套包含 30 项检查。结果在忽略的 `test-results/<browser>/results.json`，其中 `privacyVerification` 记录实际查询结果；合成视频和截图只用于测试，不进入发行包。
+运行 `npm test` / `npm run test:chrome`，每套包含 35 项检查。结果在忽略的 `test-results/<browser>/results.json`，其中 `privacyVerification` 记录实际查询结果；合成视频和截图只用于测试，不进入发行包。
 
 清空验证包含：列表为零、文件选择框为空、文件名和进度复位、视频无 src/currentSrc 且 readyState 为零、所有创建的 Blob URL 均已撤销。通过 Chromium 调试接口执行垃圾回收后，查询可达的 File 实例数量，期望为零。
 

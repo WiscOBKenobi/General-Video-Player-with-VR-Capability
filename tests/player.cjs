@@ -48,6 +48,24 @@ function pass(name) { checks.push(name); console.log('PASS', name); }
     assert.equal(await page.locator('[data-mode=normal]').getAttribute('aria-pressed'),'true');
     assert.equal(await page.locator('#vr-settings').isVisible(),false);
     pass('Direct file URL startup and WebGL initialization');
+    assert.equal(await page.locator('html').getAttribute('lang'),'en');
+    assert.equal(await page.locator('#choose').innerText(),'Choose video files');
+    assert.equal(await page.locator('#stop').getAttribute('title'),'Stop playback and clear the session playlist');
+    assert.equal(await page.evaluate(()=>{
+      const text=document.body.innerText.replace('中文','') + [...document.querySelectorAll('[title],[aria-label]')].map(e=>(e.title||'')+(e.getAttribute('aria-label')||'')).join('');
+      return /[\u4e00-\u9fff]/.test(text);
+    }),false,'default UI and tooltips must be English');
+    await page.locator('[data-language="zh-CN"]').click();
+    assert.equal(await page.locator('html').getAttribute('lang'),'zh-CN');
+    assert.equal(await page.locator('#choose').innerText(),'选择视频文件');
+    assert.equal(await page.locator('#filename').innerText(),'尚未打开视频');
+    assert.equal(await page.locator('#playlist-count').innerText(),'0 个视频');
+    await page.locator('[data-mode=vr]').click();
+    assert.equal(await page.locator('#layout option:checked').innerText(),'左右分屏（SBS）');
+    await page.locator('[data-language=en]').click();
+    assert.equal(await page.locator('#layout option:checked').innerText(),'Side by side (SBS)');
+    await page.locator('[data-mode=normal]').click();
+    pass('English by default; Chinese and English include settings, tooltips and empty states');
     const settingsBox=await page.locator('.settings').boundingBox();
     const playerBox=await page.locator('#player').boundingBox();
     const queueBox=await page.locator('.playlist').boundingBox();
@@ -135,6 +153,26 @@ function pass(name) { checks.push(name); console.log('PASS', name); }
     await page.screenshot({path:path.join(out,'vr-controls-fullscreen.png')});
     await page.locator('#fullscreen').click(); await page.waitForFunction(()=>!document.fullscreenElement);
     pass('360 drag, zoom and reset while paused');
+    const beforeLanguage=await page.evaluate(()=>{
+      const v=document.getElementById('video');
+      return {src:v.src,time:v.currentTime,rate:v.playbackRate,volume:v.volume,paused:v.paused,fov:document.getElementById('fov').value,layout:document.getElementById('layout').value};
+    });
+    await page.locator('[data-language="zh-CN"]').click();
+    assert.match(await page.locator('.playlist-detail').first().innerText(),/当前视频/);
+    assert.equal(await page.locator('.playlist-remove').first().getAttribute('aria-label'),'移除第 1 个视频');
+    await page.locator('[data-language=en]').click();
+    assert.match(await page.locator('.playlist-detail').first().innerText(),/Current video/);
+    assert.deepEqual(await page.evaluate(()=>{
+      const v=document.getElementById('video');
+      return {src:v.src,time:v.currentTime,rate:v.playbackRate,volume:v.volume,paused:v.paused,fov:document.getElementById('fov').value,layout:document.getElementById('layout').value};
+    }),beforeLanguage);
+    assert.equal(await page.locator('[data-projection="360"]').getAttribute('aria-pressed'),'true');
+    await page.evaluate(()=>{const v=document.getElementById('video');v.loop=true;v.currentTime=0;return v.play();});
+    await page.locator('[data-language="zh-CN"]').click();
+    assert.equal(await page.locator('#video').evaluate(v=>v.paused),false,'language switch must not interrupt playback');
+    await page.locator('[data-language=en]').click();
+    await page.evaluate(()=>{const v=document.getElementById('video');v.pause();v.loop=false;v.currentTime=0;});
+    pass('Language switching preserves the current file, playlist, playback and VR settings');
     await page.locator('[data-mode=normal]').click();
     color(await pixel(.3,.35), [237,32,32], 'flat top left'); color(await pixel(.7,.65), [237,237,32], 'flat bottom right');
     assert.equal(await page.locator('#fov').isDisabled(), true);
@@ -254,9 +292,19 @@ function pass(name) { checks.push(name); console.log('PASS', name); }
       const data = new DataTransfer(); data.items.add(new File(['invalid'], 'notes.txt', {type:'text/plain'}));
       document.dispatchEvent(new DragEvent('drop',{dataTransfer:data,bubbles:true,cancelable:true}));
     });
+    assert.match(await page.locator('#notice').innerText(), /Choose video files/);
+    await page.locator('[data-language="zh-CN"]').click();
     assert.match(await page.locator('#notice').innerText(), /请选择视频文件/);
+    await page.locator('[data-language=en]').click();
+    assert.match(await page.locator('#notice').innerText(), /Choose video files/);
     await page.locator('#file').setInputFiles({name:'broken.mp4',mimeType:'video/mp4',buffer:Buffer.from('broken')});
-    await page.waitForFunction(() => document.getElementById('file-state').textContent==='无法播放');
+    await page.waitForFunction(() => document.getElementById('file-state').textContent==='Cannot play');
+    await page.locator('[data-language="zh-CN"]').click();
+    assert.equal(await page.locator('#file-state').textContent(),'无法播放');
+    assert.match(await page.locator('#notice').innerText(),/浏览器无法解码/);
+    await page.locator('[data-language=en]').click();
+    assert.match(await page.locator('#notice').innerText(),/cannot decode/);
+    pass('Active error messages and playback error status follow the selected language');
     assert.equal(await page.locator('#play').isDisabled(),true);
     await page.locator('#file').setInputFiles(fixture);
     await page.waitForFunction(() => document.getElementById('canvas').classList.contains('ready'));
@@ -289,7 +337,7 @@ function pass(name) { checks.push(name); console.log('PASS', name); }
       assert.equal(await page.locator('#video').evaluate(v=>v.paused),true);
       assert.equal(await page.locator('#video').getAttribute('data-size'),null);
       assert.equal(await page.locator('#file').evaluate(v=>v.files.length),0);
-      assert.equal(await page.locator('#filename').innerText(),'尚未打开视频');
+      assert.equal(await page.locator('#filename').innerText(),'No video selected');
       assert.equal(await page.locator('#filename').getAttribute('title'),null);
       assert.equal(await page.locator('#time').innerText(),'00:00 / 00:00');
       assert.equal(await page.locator('#seek').inputValue(),'0');
@@ -301,7 +349,7 @@ function pass(name) { checks.push(name); console.log('PASS', name); }
       assert.equal(await page.locator('body').innerText().then(s=>s.includes('stereo-fixture')),false);
       assert.equal(await page.evaluate(() => navigator.mediaSession.metadata),null);
       assert.equal(await page.locator('#playlist-items li').count(),0);
-      assert.equal(await page.locator('#playlist-count').innerText(),'0 个视频');
+      assert.equal(await page.locator('#playlist-count').innerText(),'0 videos');
       assert.equal(await page.locator('#clear-list').isDisabled(),true);
     }
     await assertCleared();
@@ -321,7 +369,7 @@ function pass(name) { checks.push(name); console.log('PASS', name); }
     },bytes);
     await page.waitForTimeout(150); await assertCleared();
     await page.locator('#file').setInputFiles({name:'broken.mp4',mimeType:'video/mp4',buffer:Buffer.from('broken')});
-    await page.waitForFunction(() => document.getElementById('file-state').textContent==='无法播放');
+    await page.waitForFunction(() => document.getElementById('file-state').textContent==='Cannot play');
     await page.locator('#stop').click(); await assertCleared();
     pass('Stop during loading, after decode error and repeated reopen');
     assert.deepEqual(await page.evaluate(() => window.__audit.writes),[]);
@@ -371,7 +419,7 @@ function pass(name) { checks.push(name); console.log('PASS', name); }
       if (!window.__loss) throw new Error('Test browser must support context-loss simulation');
       document.getElementById('canvas').classList.remove('ready'); window.__loss.loseContext();
     });
-    await page.waitForFunction(() => document.getElementById('notice').textContent.includes('等待恢复'));
+    await page.waitForFunction(() => document.getElementById('notice').textContent.includes('Waiting for recovery'));
     await page.waitForTimeout(100);
     await page.evaluate(() => window.__loss.restoreContext());
     await page.waitForFunction(() => document.getElementById('canvas').classList.contains('ready'));
@@ -452,8 +500,10 @@ function pass(name) { checks.push(name); console.log('PASS', name); }
     await cdp.send('Runtime.releaseObjectGroup',{objectGroup:'file-audit'}); await cdp.detach();
     pass('Queue clear revokes every URL, releases File objects and leaves browser site stores empty');
     await page.locator('#file').setInputFiles([queued('refresh-one.webm'),queued('refresh-two.webm')]);
+    await page.locator('[data-language="zh-CN"]').click();
     await page.reload(); await assertCleared();
     assert.equal(await page.locator('#vr-settings').isVisible(),false);
+    assert.equal(await page.locator('html').getAttribute('lang'),'en');
     pass('Reload forgets the whole session queue and returns to normal video mode');
     assert.equal(createHash('sha256').update(fs.readFileSync(fixture)).digest('hex'),fixtureHash);
     pass('Playback leaves source video bytes unchanged');

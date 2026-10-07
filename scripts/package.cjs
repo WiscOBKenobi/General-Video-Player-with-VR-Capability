@@ -5,9 +5,10 @@ const { checkRelease } = require('./release-check.cjs');
 const { player } = require('./release-files.cjs');
 const root = path.resolve(__dirname, '..');
 const manifest = checkRelease();
+const { version } = require('../package.json');
 const releaseRoot = path.join(root, 'release'); fs.mkdirSync(releaseRoot, {recursive: true});
 // Always use a new output directory: never overwrite or keep stale extra files.
-const output = fs.mkdtempSync(path.join(releaseRoot, 'general-video-player-1.1.0-'));
+const output = fs.mkdtempSync(path.join(releaseRoot, `general-video-player-${version}-`));
 function copy(source, destination) {
   const target = path.join(output, destination); fs.mkdirSync(path.dirname(target), {recursive: true});
   fs.copyFileSync(path.join(root, source), target);

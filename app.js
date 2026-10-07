@@ -2,6 +2,8 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
+  const { t } = playerI18n;
+  let fileStatus = 'waiting', noticeMessage = null, playlistMessage = null;
   let video = $('video');
   const canvas = $('canvas'), viewport = $('viewport');
   const player = $('player'), transport = document.querySelector('.transport');
@@ -57,9 +59,33 @@
       gl_FragColor=texture2D(image,uv);
     }`;
 
-  function notify(message, error = false, persistent = false) {
+  function setFileStatus(key) {
+    fileStatus = key; $('file-state').textContent = t(key);
+  }
+  function announcePlaylist(key, values = {}) {
+    playlistMessage = { key, values }; $('playlist-status').textContent = t(key, values);
+  }
+  function updateControlLabels() {
+    $('play').setAttribute('aria-label', t(video.paused ? 'play' : 'pause'));
+    $('mute').setAttribute('aria-label', t(video.muted || video.volume === 0 ? 'unmute' : 'mute'));
+    const fullscreen = document.fullscreenElement === player;
+    $('fullscreen').setAttribute('aria-label', t(fullscreen ? 'exitFullscreen' : 'fullscreen'));
+    $('fullscreen').title = t(fullscreen ? 'exitFullscreenTitle' : 'fullscreenTitle');
+  }
+  function setLanguage(language) {
+    playerI18n.setLanguage(language);
+    if (!state.url) $('filename').textContent = t('noVideo');
+    setFileStatus(fileStatus); updateControlLabels(); renderPlaylist();
+    if (noticeMessage && !$('notice').hidden) $('notice').textContent = t(noticeMessage.key, noticeMessage.values);
+    if (playlistMessage) $('playlist-status').textContent = t(playlistMessage.key, playlistMessage.values);
+  }
+  document.querySelectorAll('[data-language]').forEach(button => {
+    button.onclick = () => setLanguage(button.dataset.language);
+  });
+  function notify(key, error = false, persistent = false, values = {}) {
     clearTimeout(noticeTimer);
-    $('notice').textContent = message;
+    noticeMessage = { key, values };
+    $('notice').textContent = t(key, values);
     $('notice').classList.toggle('error', error);
     $('notice').hidden = false;
     if (!persistent) noticeTimer = setTimeout(() => { $('notice').hidden = true; }, 5000);
@@ -96,7 +122,7 @@
       return true;
     } catch (error) {
       failed = true;
-      notify('无法启用图形加速。请使用新版 Edge / Chrome，并在浏览器设置中开启图形加速后重新打开。', true, true);
+      notify('graphicsUnavailable', true, true);
       return false;
     }
   }
@@ -122,7 +148,7 @@
       canvas.classList.add('ready');
     } catch (error) {
       video.pause(); failed = true;
-      notify('当前视频无法送入显卡渲染，请尝试较低分辨率或 H.264 编码的视频。', true, true);
+      notify('renderFailed', true, true);
       return;
     }
     if (!video.paused && !video.ended) requestRender();
@@ -164,8 +190,8 @@
   }
   function syncPlayback() {
     $('play').textContent = video.paused ? '▶' : 'Ⅱ';
-    $('play').setAttribute('aria-label', video.paused ? '播放' : '暂停');
-    $('file-state').textContent = !state.loaded ? '等待打开' : video.ended ? '播放结束' : video.paused ? '已暂停' : '正在播放';
+    updateControlLabels();
+    setFileStatus(!state.loaded ? 'waiting' : video.ended ? 'ended' : video.paused ? 'paused' : 'playing');
     showControls();
   }
   function canHideControls() {
@@ -201,7 +227,7 @@
   async function play() {
     const generation = state.generation;
     try { await video.play(); }
-    catch (error) { if (generation === state.generation && error.name !== 'AbortError') notify('点击播放继续；若仍无法播放，请检查视频编码。'); }
+    catch (error) { if (generation === state.generation && error.name !== 'AbortError') notify('playFailed'); }
   }
   function togglePlayback(source) {
     if (source !== 'picture') clearPictureClick();
@@ -212,7 +238,7 @@
     const rate = $('speed').valueAsNumber;
     if (!Number.isFinite(rate) || rate < .25 || rate > 4) {
       $('speed').value = state.rate;
-      notify('请输入 0.25～4 之间的倍速，例如 1.05 或 1.1。');
+      notify('invalidSpeed');
       return;
     }
     try {
@@ -220,7 +246,7 @@
       state.rate = rate; $('speed').value = rate;
     } catch {
       $('speed').value = state.rate;
-      notify('当前浏览器不支持这个倍速，请换一个数值。');
+      notify('unsupportedSpeed');
     }
   }
   function releaseMedia() {
@@ -243,8 +269,9 @@
     releaseMedia();
     clearTimeout(noticeTimer);
     $('file').value = '';
-    $('filename').textContent = '尚未打开视频'; $('filename').removeAttribute('title');
+    $('filename').textContent = t('noVideo'); $('filename').removeAttribute('title');
     $('fileinfo').textContent = '';
+    noticeMessage = null;
     $('notice').hidden = true; $('notice').textContent = ''; $('notice').classList.remove('error');
     $('empty').hidden = false; canvas.classList.remove('ready');
     // Replace GPU texture storage and clear the framebuffer, not just hide the last frame.
@@ -268,7 +295,7 @@
     renderPlaylist();
     state.vrProjection = '180'; state.layout = 'sbs'; state.eye = 'left'; $('layout').value = 'sbs';
     setMode('normal');
-    $('playlist-status').textContent = '已清空播放列表。';
+    announcePlaylist('cleared');
   }
   function fileSize(file) {
     return file.size >= 1024 ** 3 ? `${(file.size / 1024 ** 3).toFixed(2)} GB` : `${(file.size / 1024 ** 2).toFixed(1)} MB`;
@@ -283,15 +310,15 @@
       const number = document.createElement('span'); number.className = 'playlist-number'; number.textContent = String(index + 1).padStart(2, '0');
       const detail = document.createElement('span'); detail.className = 'playlist-detail';
       const name = document.createElement('strong'); name.textContent = item.file.name;
-      const meta = document.createElement('span'); meta.textContent = `${fileSize(item.file)}${item.id === activeItem ? ' · 当前视频' : ''}`;
+      const meta = document.createElement('span'); meta.textContent = `${fileSize(item.file)}${item.id === activeItem ? ' · ' + t('currentVideo') : ''}`;
       detail.append(name, meta); choose.append(number, detail);
       const remove = document.createElement('button'); remove.className = 'playlist-remove';
       remove.dataset.action = 'remove'; remove.dataset.id = item.id; remove.textContent = '×';
-      remove.setAttribute('aria-label', `移除第 ${index + 1} 个视频`); remove.title = '从当前会话移除';
+      remove.setAttribute('aria-label', t('removeVideo', { index: index + 1 })); remove.title = t('removeTitle');
       row.append(choose, remove); fragment.append(row);
     });
     $('playlist-items').replaceChildren(fragment);
-    $('playlist-count').textContent = `${playlist.length} 个视频`;
+    $('playlist-count').textContent = t(playlist.length === 1 ? 'oneVideo' : 'videoCount', { count: playlist.length });
     $('clear-list').disabled = !playlist.length && !state.url;
     $('stop').disabled = !playlist.length && !state.url;
   }
@@ -306,7 +333,7 @@
     if (activeItem === id) { clearCurrentVideo(); activeItem = null; }
     item.file = null; playlist = playlist.filter(item => item.id !== id);
     renderPlaylist();
-    $('playlist-status').textContent = `已移除一个视频，当前列表剩余 ${playlist.length} 项。`;
+    announcePlaylist('removed', { count: playlist.length });
   }
   function addFiles(files) {
     let firstId = null, count = 0, skipped = 0;
@@ -317,16 +344,16 @@
     }
     if (count) {
       selectItem(firstId); renderPlaylist();
-      $('playlist-status').textContent = `已添加 ${count} 个视频${skipped ? `，跳过 ${skipped} 个无效文件` : ''}。`;
-    } else if (skipped) notify('请选择视频文件，例如 MP4 或 WebM；空文件无法播放。', true);
+      announcePlaylist(skipped ? 'addedSkipped' : 'added', { count, skipped });
+    } else if (skipped) notify('invalidFiles', true);
   }
   function loadFile(file) {
     if (!file) return;
     if (!file.type.startsWith('video/') && !/\.(mp4|webm|mkv|mov|m4v|ogv|ogg|avi|wmv|ts|m2ts)$/i.test(file.name)) {
-      notify('请选择视频文件，例如 MP4 或 WebM。', true); return;
+      notify('invalidFile', true); return;
     }
-    if (!file.size) { notify('这个文件是空的，请选择其他视频。', true); return; }
-    if (!rendererReady || gl.isContextLost()) { notify('图形加速不可用，请重新打开页面后再试。', true, true); return; }
+    if (!file.size) { notify('emptyFile', true); return; }
+    if (!rendererReady || gl.isContextLost()) { notify('graphicsReload', true, true); return; }
     releaseMedia(); failed = false;
     state.url = URL.createObjectURL(file);
     $('stop').disabled = false;
@@ -338,7 +365,7 @@
     const units = fileSize(file);
     $('fileinfo').textContent = units;
     video.dataset.size = units;
-    $('file-state').textContent = '正在加载';
+    setFileStatus('loading');
     resetView();
     video.src = state.url; video.load(); updateTime();
     return true;
@@ -375,7 +402,7 @@
     if (!state.url) return;
     const limit = gl.getParameter(gl.MAX_TEXTURE_SIZE);
     if (video.videoWidth > limit || video.videoHeight > limit) {
-      notify(`视频分辨率超过当前显卡限制（单边 ${limit} 像素），请选择较低分辨率版本。`, true, true); $('file-state').textContent = '分辨率不支持'; return;
+      notify('resolutionLimit', true, true, { limit }); setFileStatus('resolutionUnsupported'); return;
     }
     state.loaded = true;
     $('fileinfo').textContent = `${video.dataset.size} · ${video.videoWidth} × ${video.videoHeight}`;
@@ -395,13 +422,13 @@
   on('error', () => {
     if (!state.url) return;
     state.loaded = false; $('play').disabled = true; $('back').disabled = true; $('seek').disabled = true;
-    canvas.classList.remove('ready'); $('file-state').textContent = '无法播放';
+    canvas.classList.remove('ready'); setFileStatus('cannotPlay');
     showControls();
-    notify('浏览器无法解码这个视频，或文件已损坏。请尝试 H.264 + AAC 的 MP4，或 VP9 的 WebM。MKV / HEVC 等格式的支持取决于浏览器和系统。', true, true);
+    notify('decodeFailed', true, true);
   });
   on('volumechange', () => {
     const muted = video.muted || video.volume === 0;
-    $('mute').textContent = muted ? '×' : '♪'; $('mute').setAttribute('aria-label', muted ? '取消静音' : '静音');
+    $('mute').textContent = muted ? '×' : '♪'; updateControlLabels();
     $('volume').value = video.muted ? 0 : video.volume;
   });
   }
@@ -416,11 +443,11 @@
   async function fullscreen() {
     clearPictureClick();
     try { if (document.fullscreenElement) await document.exitFullscreen(); else await $('player').requestFullscreen(); }
-    catch { notify('当前窗口不支持全屏，请在 Edge / Chrome 中打开，或使用 F11。'); }
+    catch { notify('fullscreenFailed'); }
   }
   $('fullscreen').onclick = fullscreen;
   document.addEventListener('fullscreenchange', () => {
-    $('fullscreen').setAttribute('aria-label', document.fullscreenElement ? '退出全屏' : '全屏');
+    updateControlLabels();
     showControls(); requestRender();
   });
   $('reset').onclick = resetView; $('fov').oninput = event => setFov(event.target.value);
@@ -494,9 +521,10 @@
     else if (event.code === 'KeyM') video.muted = !video.muted;
   });
   new ResizeObserver(requestRender).observe(viewport);
-  canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); rendererReady = false; failed = true; video.pause(); notify('图形设备暂时不可用，正在等待恢复。', true, true); });
+  canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); rendererReady = false; failed = true; video.pause(); notify('graphicsLost', true, true); });
   canvas.addEventListener('webglcontextrestored', () => { failed = false; if (initializeRenderer()) { $('notice').hidden = true; requestRender(); } });
   // Also clear before a page is stored in the browser's back/forward cache.
   window.addEventListener('pagehide', stopAndClear);
+  setLanguage('en');
   video.volume = .8; initializeRenderer(); refreshSettings();
 })();

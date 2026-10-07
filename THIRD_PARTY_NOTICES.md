@@ -2,7 +2,7 @@
 
 ## 播放器运行文件
 
-`index.html`、`style.css`、`app.js`、`icon.svg` 在本项目开发过程中由 AI 辅助编写，按根目录 [MIT License](LICENSE) 提供。本说明依据本次开发过程和文件检查，不表示做过全互联网逐行查重，也不保证所有生成内容具有排他的著作权。
+`index.html`、`style.css`、`app.js`、`i18n.js`、`icon.svg` 在本项目开发过程中由 AI 辅助编写，按根目录 [MIT License](LICENSE) 提供。本说明依据本次开发过程和文件检查，不表示做过全互联网逐行查重，也不保证所有生成内容具有排他的著作权。
 
 - 功能需求参考 [Online VR Player](https://onlinevrplayer.com/) 的本地文件、双眼选取和拖动观看功能；没有下载或引入该站的播放器脚本、图片、标识或字体。本项目不代表该网站，不暗示其授权或关联。
 - 图标为项目内简单 SVG 几何图形；界面使用系统字体与文本符号，没有捆绑第三方字体、图片素材、音乐、视频或远程资源。README 的两张演示截图来自实际页面，合成全景由 scripts/demo-screenshots.cjs 绘制；均为本项目素材，按 MIT 许可提供。
