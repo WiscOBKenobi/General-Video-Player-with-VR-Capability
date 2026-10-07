@@ -1,0 +1,22 @@
+{
+  "name": "general-video-player-with-vr-capability",
+  "version": "1.1.0",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "description": "Offline browser player for local videos and equirectangular VR180 / 360 videos",
+  "scripts": {
+    "check": "node --check app.js",
+    "test": "node tests/player.cjs",
+    "test:chrome": "node tests/player.cjs chrome",
+    "release:check": "node scripts/release-check.cjs",
+    "package": "node scripts/package.cjs",
+    "screenshots": "node scripts/demo-screenshots.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1",
+    "pngjs": "7.0.0"
+  }
+}

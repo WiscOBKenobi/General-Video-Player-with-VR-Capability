@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>General Video Player with VR Capability</title>
+  <meta name="description" content="本地普通视频与 VR 播放器。默认平面播放，会话播放列表可一键清空，视频无需上传。">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="header">
+    <a class="brand" href="./index.html" aria-label="General Video Player with VR Capability 首页"><img class="brand-icon" src="icon.svg" alt="" width="48" height="48"><strong>General Video Player<span>with VR Capability</span></strong></a>
+  </header>
+  <main>
+    <input id="file" type="file" accept="video/*,.mkv,.mov,.m4v,.webm,.mp4" multiple hidden>
+    <div class="workspace">
+      <aside class="settings" aria-label="播放设置">
+        <div class="settings-title"><h2>观看设置</h2></div>
+        <fieldset class="mode-setting"><legend>播放模式</legend><div class="segmented playback-modes"><button data-mode="normal" aria-pressed="true">普通视频</button><button data-mode="vr" aria-pressed="false">VR 视频</button></div></fieldset>
+        <div id="vr-settings" hidden>
+        <fieldset><legend>投影方式</legend><div class="mode-grid" id="projection-options">
+          <button data-projection="180" aria-pressed="true"><strong>180°</strong><span>半球 VR</span></button>
+          <button data-projection="360" aria-pressed="false"><strong>360°</strong><span>全景视频</span></button>
+        </div></fieldset>
+        <div class="setting"><label for="layout">视频格式</label><select id="layout"><option value="sbs">左右分屏（SBS）</option><option value="tb">上下分屏（Top / Bottom）</option><option value="mono">单幅画面（Mono）</option></select></div>
+        <fieldset id="eye-options"><legend>观看画面</legend><div class="segmented"><button data-eye="left" aria-pressed="true">左眼</button><button data-eye="right" aria-pressed="false">右眼</button><button data-eye="both" aria-pressed="false">双眼</button></div></fieldset>
+        <div class="setting"><div class="label-row"><label for="fov">视野范围</label><output id="fov-value" for="fov">75°</output></div><input id="fov" type="range" min="35" max="110" value="75"><div class="range-labels"><span>放大</span><span>广角</span></div></div>
+        </div>
+      </aside>
+      <div class="playback-column">
+      <section id="player" class="player" aria-label="视频播放器">
+        <div class="viewport" id="viewport" tabindex="0" aria-label="视频画面；单击或按空格播放暂停，双击进入或退出全屏，VR 模式可拖动和缩放">
+          <canvas id="canvas" aria-label="VR 视频画面"></canvas>
+          <video id="video" playsinline preload="metadata" hidden></video>
+          <div id="empty" class="empty">
+            <img class="lens" src="icon.svg" alt="" width="150" height="150">
+            <h2>把你的视频拖进来</h2>
+            <button id="choose" class="secondary">选择视频文件</button>
+          </div>
+          <div id="drop-hint" class="drop-hint">松开鼠标，开始观看</div>
+          <div id="notice" class="notice" role="status" hidden></div>
+        </div>
+        <div class="transport">
+          <label class="sr-only" for="seek">播放进度</label><input id="seek" type="range" min="0" max="100" step="0.01" value="0" disabled>
+          <div class="transport-row">
+            <button id="play" class="icon-button play" aria-label="播放" title="播放 / 暂停 (空格)" disabled>▶</button>
+            <button id="stop" class="stop-button" aria-label="终止并清空" title="终止播放并清空整个会话列表、画面、文件名和进度" disabled>■<span> 终止</span></button>
+            <button id="back" class="icon-button skip" aria-label="后退 10 秒" title="后退 10 秒" disabled>↶<small>10</small></button>
+            <span id="time" class="time">00:00 <span>/ 00:00</span></span>
+            <div class="transport-spacer"></div>
+            <button id="mute" class="icon-button" aria-label="静音" title="静音 (M)">♪</button>
+            <label class="sr-only" for="volume">音量</label><input id="volume" type="range" min="0" max="1" step="0.01" value="0.8">
+            <div class="speed-control"><label class="sr-only" for="speed">自定义播放倍速（0.25 至 4）</label><input id="speed" type="number" min="0.25" max="4" step="any" value="1" inputmode="decimal" autocomplete="off" list="speed-options" title="输入 0.25～4 倍，例如 1.05、1.1；按回车或移开焦点应用"><span aria-hidden="true">×</span><datalist id="speed-options"><option value="0.5"></option><option value="0.75"></option><option value="1"></option><option value="1.05"></option><option value="1.1"></option><option value="1.25"></option><option value="1.5"></option><option value="2"></option></datalist></div>
+            <button id="reset" class="mini" title="重置视角 (R)" hidden>↺ 重置视角</button>
+            <button id="fullscreen" class="icon-button" aria-label="全屏" title="全屏 (F)">⛶</button>
+          </div>
+        </div>
+      </section>
+    <div class="filebar"><span class="file-symbol" aria-hidden="true">▤</span><div><strong id="filename">尚未打开视频</strong><span id="fileinfo"></span></div><span id="file-state" class="sr-only" role="status">等待打开</span></div>
+      </div>
+    <section class="playlist" aria-labelledby="playlist-heading">
+      <div class="playlist-heading"><div><h2 id="playlist-heading">会话播放列表 <span id="playlist-count">0 个视频</span></h2></div><div class="playlist-actions"><button id="add-files" class="secondary">＋ 添加视频</button><button id="clear-list" class="clear-list" disabled>清空列表与播放</button></div></div>
+      <ol id="playlist-items" aria-label="当前会话视频列表"></ol>
+      <p id="playlist-status" class="sr-only" role="status" aria-live="polite"></p>
+    </section>
+    </div>
+  </main>
+</body>
+</html>
